@@ -8,8 +8,7 @@ A LangGraph multi-agent system for clinical decision support, leveraging pgvecto
 [![Flask](https://img.shields.io/badge/Flask-3.0+-red.svg)](https://flask.palletsprojects.com/)
 [![React](https://img.shields.io/badge/React-18+-61dafb.svg)](https://react.dev/)
 
-<img width="1019" height="745" alt="image" src="https://github.com/user-attachments/assets/1b90d28f-fb19-46fd-afe3-50b4f0302c71" />
-
+<img width="864" height="744" alt="image" src="https://github.com/user-attachments/assets/9b2572e1-0976-4b77-a3df-4f45ad0d8894" />
 
 ---
 
