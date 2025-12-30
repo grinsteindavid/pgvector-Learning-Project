@@ -1,5 +1,8 @@
 from src.retrievers.base import BaseRetriever, EmbeddingFunction
 from src.db.connection import get_connection
+from src.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class ToolsRetriever(BaseRetriever):
@@ -10,6 +13,7 @@ class ToolsRetriever(BaseRetriever):
     
     def search(self, query: str, limit: int = 5) -> list[dict]:
         """Search clinical tools by semantic similarity."""
+        logger.info(f"Searching clinical_tools: query='{query[:50]}...', limit={limit}")
         query_embedding = self.embed_fn(query)
         
         with get_connection() as conn:
@@ -27,4 +31,6 @@ class ToolsRetriever(BaseRetriever):
                     ORDER BY embedding <=> %s::vector
                     LIMIT %s
                 """, (query_embedding, query_embedding, limit))
-                return cur.fetchall()
+                results = cur.fetchall()
+                logger.info(f"Found {len(results)} clinical tools")
+                return results

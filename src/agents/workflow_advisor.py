@@ -3,6 +3,9 @@ from langchain_core.messages import SystemMessage, HumanMessage
 
 from src.agents.state import AgentState
 from src.retrievers.base import BaseRetriever
+from src.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 WORKFLOW_ADVISOR_PROMPT = """You are a clinical workflow advisor synthesizing recommendations from tools and organizational insights.
@@ -33,11 +36,13 @@ class WorkflowAdvisorAgent:
     
     def run(self, state: AgentState) -> AgentState:
         """Search both tables and generate comprehensive response."""
+        logger.info(f"WorkflowAdvisor processing: '{state.query[:50]}...'")
         tools_results = self.tools_retriever.search(state.query, limit=3)
         orgs_results = self.orgs_retriever.search(state.query, limit=3)
         
         state.tools_results = tools_results
         state.orgs_results = orgs_results
+        logger.info(f"Retrieved {len(tools_results)} tools, {len(orgs_results)} orgs")
         
         tools_text = self._format_tools(tools_results)
         orgs_text = self._format_orgs(orgs_results)

@@ -2,6 +2,9 @@ from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import SystemMessage, HumanMessage
 
 from src.agents.state import AgentState
+from src.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 ROUTING_PROMPT = """You are a routing agent for a clinical decision support system.
@@ -23,6 +26,7 @@ class SupervisorAgent:
     
     def route(self, state: AgentState) -> AgentState:
         """Determine which agent should handle the query."""
+        logger.info(f"Routing query: '{state.query[:50]}...'")
         messages = [
             SystemMessage(content=ROUTING_PROMPT),
             HumanMessage(content=state.query)
@@ -32,7 +36,9 @@ class SupervisorAgent:
         route = response.content.strip().lower()
         
         if route not in ("tool_finder", "org_matcher", "workflow_advisor"):
+            logger.warning(f"Invalid route '{route}', defaulting to workflow_advisor")
             route = "workflow_advisor"
         
+        logger.info(f"Routed to: {route}")
         state.route = route
         return state

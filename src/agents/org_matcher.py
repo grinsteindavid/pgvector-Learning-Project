@@ -3,6 +3,9 @@ from langchain_core.messages import SystemMessage, HumanMessage
 
 from src.agents.state import AgentState
 from src.retrievers.base import BaseRetriever
+from src.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 ORG_MATCHER_PROMPT = """You are a healthcare organizations specialist helping find relevant case studies and implementations.
@@ -24,8 +27,10 @@ class OrgMatcherAgent:
     
     def run(self, state: AgentState) -> AgentState:
         """Search for organizations and generate response."""
+        logger.info(f"OrgMatcher processing: '{state.query[:50]}...'")
         results = self.retriever.search(state.query, limit=5)
         state.orgs_results = results
+        logger.info(f"Retrieved {len(results)} organizations")
         
         orgs_text = self._format_results(results)
         

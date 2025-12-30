@@ -3,13 +3,17 @@ from langgraph.graph import StateGraph, END
 from langchain_openai import ChatOpenAI
 
 from src.config import OPENAI_API_KEY
+from src.logger import get_logger
 from src.embeddings.openai_embed import get_embedding
 from src.retrievers import ToolsRetriever, OrgsRetriever
+
 from src.agents.state import AgentState, GraphState
 from src.agents.supervisor import SupervisorAgent
 from src.agents.tool_finder import ToolFinderAgent
 from src.agents.org_matcher import OrgMatcherAgent
 from src.agents.workflow_advisor import WorkflowAdvisorAgent
+
+logger = get_logger(__name__)
 
 
 def create_clinical_graph(llm=None):
