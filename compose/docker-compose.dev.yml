@@ -1,0 +1,26 @@
+# Development overrides - Hot reload, debug mode
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: ..
+      dockerfile: docker/api/Dockerfile.dev
+    environment:
+      - FLASK_DEBUG=1
+    volumes:
+      - ../src:/app/src
+      - ../scripts:/app/scripts
+      - ../logs:/app/logs
+
+  ui:
+    build:
+      context: ../ui
+      dockerfile: ../docker/ui/Dockerfile.dev
+    environment:
+      - API_URL=http://api:5000
+    volumes:
+      - ../ui:/app
+      - /app/node_modules
+    ports:
+      - "3000:3000"

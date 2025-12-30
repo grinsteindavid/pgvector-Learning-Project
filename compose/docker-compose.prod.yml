@@ -1,0 +1,29 @@
+# Production overrides - Optimized builds, no volumes
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: ..
+      dockerfile: docker/api/Dockerfile
+    restart: unless-stopped
+    volumes:
+      - ../logs:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  ui:
+    build:
+      context: ../ui
+      dockerfile: ../docker/ui/Dockerfile
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80"]
+      interval: 30s
+      timeout: 10s
+      retries: 3

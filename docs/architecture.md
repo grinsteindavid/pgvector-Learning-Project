@@ -1,0 +1,112 @@
+# Architecture Overview
+
+LangGraph-based multi-agent system for clinical decision support using pgvector semantic search.
+
+## System Architecture
+
+```
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│   React UI      │     │   Flask API     │     │   PostgreSQL    │
+│   (Vite/nginx)  │────▶│   (gunicorn)    │────▶│   (pgvector)    │
+│   Port 3000     │ SSE │   Port 5000     │     │   Port 5432     │
+└─────────────────┘     └─────────────────┘     └─────────────────┘
+                               │
+                               ▼
+                    ┌─────────────────────┐
+                    │     LangGraph       │
+                    │   Multi-Agent       │
+                    └─────────────────────┘
+```
+
+## Agent Architecture
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    SUPERVISOR AGENT                      │
+│         Routes queries to specialist agents              │
+└─────────────────┬───────────────────────────────────────┘
+                  │
+    ┌─────────────┼─────────────┐
+    ▼             ▼             ▼
+┌────────┐   ┌────────┐   ┌────────┐
+│ TOOL   │   │ ORG    │   │WORKFLOW│
+│ FINDER │   │ MATCHER│   │ ADVISOR│
+└────────┘   └────────┘   └────────┘
+    │             │             │
+    ▼             ▼             ▼
+ pgvector      pgvector     combines
+ clinical_     clinical_    results +
+ tools         orgs         reasoning
+```
+
+## Agent Descriptions
+
+### Supervisor Agent
+- **Purpose:** Classify incoming queries and route to appropriate specialist
+- **Input:** User query
+- **Output:** Routing decision (tool_finder | org_matcher | workflow_advisor)
+- **No pgvector access** - pure routing logic
+
+### Tool Finder Agent
+- **Purpose:** Find relevant clinical decision support tools
+- **Uses:** `clinical_tools` table via pgvector semantic search
+
+### Org Matcher Agent
+- **Purpose:** Find healthcare organizations with relevant AI implementations
+- **Uses:** `clinical_organizations` table via pgvector semantic search
+
+### Workflow Advisor Agent
+- **Purpose:** Synthesize recommendations combining tools and org insights
+- **Uses:** Both tables via pgvector semantic search
+
+## State Definition
+
+```python
+@dataclass
+class AgentState:
+    query: str
+    route: Literal["tool_finder", "org_matcher", "workflow_advisor"] | None = None
+    tools_results: list[dict] = field(default_factory=list)
+    orgs_results: list[dict] = field(default_factory=list)
+    response: str = ""
+    error: str | None = None
+```
+
+## Database Schema
+
+### clinical_organizations
+Healthcare systems with AI use cases.
+
+| Column | Type | Description |
+|--------|------|-------------|
+| id | SERIAL | Primary key |
+| name | VARCHAR | Organization name |
+| org_type | VARCHAR | health_system, academic_medical_center |
+| description | TEXT | Detailed description (embedded) |
+| embedding | vector(1536) | OpenAI text-embedding-3-small |
+
+### clinical_tools
+Clinical decision support tools.
+
+| Column | Type | Description |
+|--------|------|-------------|
+| id | SERIAL | Primary key |
+| name | VARCHAR | Tool name |
+| category | VARCHAR | CDS, Documentation, Analytics |
+| description | TEXT | Full description (embedded) |
+| embedding | vector(1536) | OpenAI text-embedding-3-small |
+
+### chat_threads & chat_messages
+Conversation persistence with LangGraph checkpointing.
+
+## Testing Strategy
+
+### Unit Tests (No Network)
+- Mock embeddings with deterministic hash-based vectors
+- Mock database with fixture data
+- Mock LLM with predefined responses
+
+### Integration Tests
+- Require running Docker database
+- Use real pgvector queries
+- Run separately: `make test`

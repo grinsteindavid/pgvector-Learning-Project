@@ -1,4 +1,10 @@
+# Base Docker Compose - Shared configuration
 version: '3.8'
+
+# Load .env from project root
+x-env: &env-file
+  env_file:
+    - ../.env
 
 services:
   postgres:
@@ -19,39 +25,26 @@ services:
       retries: 5
 
   api:
-    build:
-      context: .
-      dockerfile: api/Dockerfile.dev
+    <<: *env-file
     container_name: clinical_ai_api
     environment:
       - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/vectordb
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - FLASK_DEBUG=1
     ports:
       - "5000:5000"
     depends_on:
       postgres:
         condition: service_healthy
-    volumes:
-      - ./src:/app/src
-      - ./scripts:/app/scripts
-      - ./logs:/app/logs
-    command: ["python", "scripts/run_api_dev.py"]
 
   ui:
-    image: node:20-alpine
     container_name: clinical_ai_ui
-    working_dir: /app
-    environment:
-      - API_URL=http://api:5000
     ports:
       - "3000:3000"
     depends_on:
       - api
-    volumes:
-      - ./ui:/app
-      - /app/node_modules
-    command: ["sh", "-c", "npm install && npm run dev -- --host"]
 
 volumes:
   pgdata:
+
+networks:
+  default:
+    name: clinical_ai_network

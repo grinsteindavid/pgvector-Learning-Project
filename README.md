@@ -10,7 +10,6 @@ A LangGraph multi-agent system for clinical decision support, leveraging pgvecto
 
 <img width="1019" height="745" alt="image" src="https://github.com/user-attachments/assets/1b90d28f-fb19-46fd-afe3-50b4f0302c71" />
 
-
 ---
 
 ## Table of Contents
@@ -44,9 +43,9 @@ This system provides intelligent clinical decision support through a multi-agent
 - **Semantic Search** - pgvector-powered similarity search over clinical data
 - **Multi-Agent Routing** - Intelligent query classification and delegation
 - **Streaming API** - Real-time Server-Sent Events (SSE) for progressive responses
-- **React Chat UI** - Modern streaming chat interface
-- **Comprehensive Logging** - Timestamped log files for debugging and auditing
-- **Docker Ready** - Full-stack containerization support
+- **React Chat UI** - Modern streaming chat interface with thread persistence
+- **LangGraph Checkpoints** - PostgreSQL-backed conversation state persistence
+- **Docker Ready** - Separate dev/prod configurations
 
 ---
 
@@ -81,67 +80,47 @@ This system provides intelligent clinical decision support through a multi-agent
 
 ### Prerequisites
 
-- Python 3.10+
 - Docker & Docker Compose
-- Node.js 20+ (for UI development)
 - OpenAI API Key
 
-### 1. Clone and Setup
+### 1. Clone and Configure
 
 ```bash
 git clone https://github.com/grinsteindavid/pgvector-Learning-Project.git
 cd pgvector-Learning-Project
 
-# Create virtual environment
-python -m venv .venv
-source .venv/bin/activate
-
-# Install dependencies
-pip install -r requirements.txt
-```
-
-### 2. Configure Environment
-
-```bash
 cp .env.example .env
 # Edit .env with your OpenAI API key
 ```
 
-### 3. Start Database
+### 2. Start Development Environment
 
 ```bash
-docker-compose up -d
+make dev
 ```
 
-### 4. Initialize and Seed Database
+This starts all services with hot-reload:
+- **UI**: http://localhost:3000
+- **API**: http://localhost:5000
+- **PostgreSQL**: localhost:5432
+
+### 3. Seed Database (optional)
 
 ```bash
-python scripts/init_db.py
-python scripts/seed_db.py
+make init-db
+make seed-db
 ```
 
-### 5. Run the Application
+### Available Commands
 
-**Option A: CLI Agent**
 ```bash
-python scripts/run_agent.py
+make dev       # Start development environment (hot-reload)
+make prod      # Start production environment
+make down      # Stop all containers
+make logs      # View container logs
+make test      # Run test suite
+make clean     # Remove containers, volumes, and cache
 ```
-
-**Option B: Flask API**
-```bash
-python scripts/run_api.py
-```
-
-**Option C: Full Stack (API + UI)**
-```bash
-# Terminal 1: API
-python scripts/run_api.py
-
-# Terminal 2: UI
-cd ui && npm install && npm run dev
-```
-
-Access the UI at http://localhost:3000
 
 ---
 
@@ -188,7 +167,7 @@ data: {"node": "tool_finder", "data": {"response": "..."}}
 data: [DONE]
 ```
 
-See [API README](src/api/README.md) for complete documentation.
+See [API Documentation](docs/api.md) for complete reference.
 
 ---
 
@@ -196,75 +175,84 @@ See [API README](src/api/README.md) for complete documentation.
 
 ```
 pgvectors/
-├── docker-compose.yml          # PostgreSQL + pgvector
-├── docker-compose.full.yml     # Full stack (DB + API + UI)
-├── requirements.txt            # Python dependencies
-├── pytest.ini                  # Test configuration
-├── .env                        # Environment variables (gitignored)
+├── .env.example                 # Environment template
+├── Makefile                     # Dev/prod commands
+├── requirements.txt             # Production dependencies
+├── requirements-dev.txt         # Dev/test dependencies
+├── pytest.ini                   # Test configuration
 │
-├── api/
-│   └── Dockerfile              # Flask API container
+├── compose/                     # Docker Compose configs
+│   ├── docker-compose.yml       # Base services
+│   ├── docker-compose.dev.yml   # Dev overrides (hot-reload)
+│   └── docker-compose.prod.yml  # Prod overrides (optimized)
 │
-├── ui/                         # React frontend
-│   ├── Dockerfile              # Multi-stage build
+├── docker/                      # Dockerfiles
+│   ├── api/
+│   │   ├── Dockerfile           # Production API
+│   │   └── Dockerfile.dev       # Development API
+│   └── ui/
+│       ├── Dockerfile           # Production UI (nginx)
+│       ├── Dockerfile.dev       # Development UI (vite)
+│       └── nginx.conf           # Production nginx config
+│
+├── docs/                        # Documentation
+│   ├── api.md                   # API reference
+│   └── architecture.md          # System design
+│
+├── scripts/                     # CLI utilities
+│   ├── init_db.py               # Initialize schema
+│   ├── seed_db.py               # Seed database
+│   ├── run_agent.py             # CLI agent
+│   └── query_examples.py        # Example queries
+│
+├── src/                         # Python application
+│   ├── config.py                # Configuration
+│   ├── logger.py                # Logging setup
+│   ├── api/                     # Flask REST API
+│   │   ├── app.py               # App factory
+│   │   └── routes/
+│   │       ├── health.py        # Health endpoint
+│   │       ├── agent.py         # Query endpoints
+│   │       └── threads.py       # Thread management
+│   ├── agents/                  # LangGraph agents
+│   │   ├── state.py             # State definition
+│   │   ├── graph.py             # Workflow graph
+│   │   ├── supervisor.py        # Router agent
+│   │   ├── tool_finder.py       # Tools agent
+│   │   ├── org_matcher.py       # Orgs agent
+│   │   └── workflow_advisor.py  # Synthesis agent
+│   ├── db/                      # Database layer
+│   │   ├── connection.py        # Connection pool
+│   │   ├── schema.py            # Schema init
+│   │   ├── checkpointer.py      # LangGraph checkpoints
+│   │   └── threads.py           # Thread persistence
+│   ├── retrievers/              # pgvector search
+│   │   ├── base.py              # Abstract retriever
+│   │   ├── tools_retriever.py   # Tools search
+│   │   └── orgs_retriever.py    # Orgs search
+│   └── embeddings/
+│       └── openai_embed.py      # OpenAI embeddings
+│
+├── tests/                       # Test suite
+│   ├── conftest.py              # Fixtures
+│   ├── mocks/                   # Mock implementations
+│   ├── unit/                    # Unit tests
+│   └── integration/             # E2E tests
+│
+├── ui/                          # React frontend
 │   ├── package.json
 │   ├── vite.config.ts
 │   └── src/
 │       ├── App.tsx
-│       └── components/
-│           └── Chat.tsx        # Streaming chat component
+│       ├── components/
+│       │   ├── Chat.tsx         # Chat interface
+│       │   └── Sidebar.tsx      # Thread list
+│       ├── hooks/
+│       │   └── useThreads.ts    # Thread state
+│       └── types/
+│           └── thread.ts        # TypeScript types
 │
-├── src/
-│   ├── config.py               # Configuration management
-│   ├── logger.py               # Centralized logging
-│   │
-│   ├── api/                    # Flask REST API
-│   │   ├── app.py              # App factory
-│   │   └── routes/
-│   │       ├── health.py       # Health check
-│   │       └── agent.py        # Query endpoints
-│   │
-│   ├── agents/                 # LangGraph agents
-│   │   ├── state.py            # Agent state definition
-│   │   ├── graph.py            # Workflow graph
-│   │   ├── supervisor.py       # Routing agent
-│   │   ├── tool_finder.py      # Clinical tools agent
-│   │   ├── org_matcher.py      # Organizations agent
-│   │   ├── workflow_advisor.py # Synthesis agent
-│   │   └── tools.py            # LangChain tool schemas
-│   │
-│   ├── retrievers/             # pgvector search
-│   │   ├── base.py             # Abstract retriever
-│   │   ├── tools_retriever.py  # Clinical tools search
-│   │   └── orgs_retriever.py   # Organizations search
-│   │
-│   ├── db/                     # Database layer
-│   │   ├── connection.py       # Connection management
-│   │   └── schema.py           # Schema initialization
-│   │
-│   ├── embeddings/
-│   │   └── openai_embed.py     # OpenAI embeddings
-│   │
-│   └── seed/
-│       ├── clinical_data.py    # Sample healthcare data
-│       └── run_seed.py         # Seeding script
-│
-├── scripts/
-│   ├── init_db.py              # Initialize schema
-│   ├── seed_db.py              # Seed database
-│   ├── run_agent.py            # CLI agent
-│   ├── run_api.py              # Flask server
-│   └── query_examples.py       # Example queries
-│
-├── tests/
-│   ├── conftest.py             # Test fixtures
-│   ├── mocks/
-│   │   ├── mock_embeddings.py  # Fake embeddings
-│   │   └── mock_db.py          # Mock retrievers
-│   ├── unit/                   # Unit tests (no network)
-│   └── integration/            # E2E tests (real DB + API)
-│
-└── logs/                       # Timestamped log files (gitignored)
+└── logs/                        # Log files (gitignored)
 ```
 
 ---
@@ -314,32 +302,41 @@ RUN_INTEGRATION_TESTS=1 pytest tests/integration -v
 
 ## Docker Deployment
 
-### Full Stack
+### Development (Hot-Reload)
 
 ```bash
-# Build and run all services
-docker-compose -f docker-compose.full.yml up --build
-
-# Access:
-# - UI: http://localhost:3000
-# - API: http://localhost:5000
-# - PostgreSQL: localhost:5432
+make dev
+# Or manually:
+docker compose -f compose/docker-compose.yml -f compose/docker-compose.dev.yml up
 ```
 
-### Individual Services
+Features:
+- Source code mounted as volumes
+- Flask debug mode with auto-reload
+- Vite dev server with HMR
+- Logs visible in terminal
+
+### Production (Optimized)
 
 ```bash
-# Database only
-docker-compose up -d
-
-# API only (requires running database)
-docker build -f api/Dockerfile -t clinical-ai-api .
-docker run -p 5000:5000 --env-file .env clinical-ai-api
-
-# UI only (requires running API)
-cd ui && docker build -t clinical-ai-ui .
-docker run -p 3000:80 clinical-ai-ui
+make prod
+# Or manually:
+docker compose -f compose/docker-compose.yml -f compose/docker-compose.prod.yml up -d
 ```
+
+Features:
+- Multi-stage builds (smaller images)
+- gunicorn with 4 workers
+- nginx serving static assets
+- Health checks enabled
+
+### Access
+
+| Service | Dev | Prod |
+|---------|-----|------|
+| UI | http://localhost:3000 | http://localhost:3000 |
+| API | http://localhost:5000 | http://localhost:5000 |
+| PostgreSQL | localhost:5432 | localhost:5432 |
 
 ---
 
@@ -371,6 +368,26 @@ docker run -p 3000:80 clinical-ai-ui
 | problem_solved | TEXT | Problem addressed |
 | embedding | vector(1536) | OpenAI text-embedding-3-small |
 
+### chat_threads
+
+| Column | Type | Description |
+|--------|------|-------------|
+| id | UUID | Primary key |
+| title | VARCHAR(255) | Thread title |
+| created_at | TIMESTAMPTZ | Creation timestamp |
+| updated_at | TIMESTAMPTZ | Last update |
+
+### chat_messages
+
+| Column | Type | Description |
+|--------|------|-------------|
+| id | UUID | Primary key |
+| thread_id | UUID | Foreign key to chat_threads |
+| role | VARCHAR(20) | 'user' or 'assistant' |
+| content | TEXT | Message content |
+| route | VARCHAR(50) | Agent route used |
+| created_at | TIMESTAMPTZ | Creation timestamp |
+
 ### HNSW Indexes
 
 ```sql
@@ -384,6 +401,15 @@ CREATE INDEX idx_tool_embedding ON clinical_tools
 ---
 
 ## Development
+
+### Dev vs Prod
+
+| Aspect | Development | Production |
+|--------|-------------|------------|
+| API Server | Flask debug (reload) | gunicorn (4 workers) |
+| UI Server | Vite dev server | nginx + static |
+| Code | Volume mounts | Built into image |
+| Debugging | Enabled | Disabled |
 
 ### Adding New Agents
 

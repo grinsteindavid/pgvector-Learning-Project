@@ -1,0 +1,13 @@
+# Development UI Dockerfile
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Install dependencies (will be overridden by volume mount)
+COPY package.json package-lock.json* ./
+RUN npm install
+
+EXPOSE 3000
+
+# Dev server with hot-reload
+CMD ["npm", "run", "dev", "--", "--host"]

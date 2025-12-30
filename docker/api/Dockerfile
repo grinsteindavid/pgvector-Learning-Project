@@ -1,4 +1,4 @@
-# Flask API Development Dockerfile
+# Production API Dockerfile
 FROM python:3.10-slim
 
 WORKDIR /app
@@ -12,6 +12,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Copy and install requirements
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir gunicorn
+
+# Copy application code
+COPY src/ ./src/
+COPY scripts/ ./scripts/
 
 # Create logs directory
 RUN mkdir -p logs
@@ -19,6 +24,8 @@ RUN mkdir -p logs
 # Environment variables
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONPATH=/app
-ENV FLASK_APP=src.api:create_app()
 
 EXPOSE 5000
+
+# Production server with gunicorn
+CMD ["gunicorn", "-w", "4", "-b", "0.0.0.0:5000", "--timeout", "120", "src.api:create_app()"]
