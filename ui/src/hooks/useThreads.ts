@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import type { Thread, Message, ThreadWithMessages } from '../types/thread'
+import type { Thread, Message, ThreadWithMessages, Confidence } from '../types/thread'
 
 const API_BASE = '/api'
 
@@ -109,6 +109,7 @@ export function useThreads() {
 
       let accumulatedContent = ''
       let route = ''
+      let confidence: Confidence | undefined
 
       while (true) {
         const { done, value } = await reader.read()
@@ -130,10 +131,13 @@ export function useThreads() {
               if (event.data.response) {
                 accumulatedContent = event.data.response
               }
+              if (event.data.confidence) {
+                confidence = event.data.confidence
+              }
 
               setMessages(prev => prev.map(msg =>
                 msg.id === assistantMessage.id
-                  ? { ...msg, content: accumulatedContent, route }
+                  ? { ...msg, content: accumulatedContent, route, confidence }
                   : msg
               ))
             } catch {

@@ -1,11 +1,29 @@
 import { useRef, useEffect, useState } from 'react'
-import type { Message } from '../types/thread'
+import type { Message, Confidence } from '../types/thread'
 
 interface ChatProps {
   messages: Message[]
   isLoading: boolean
   onSendMessage: (content: string) => void
   hasActiveThread: boolean
+}
+
+function ConfidenceBadge({ confidence }: { confidence: Confidence }) {
+  const overall = confidence.overall
+  const color = overall >= 0.7 ? 'bg-green-100 text-green-700' :
+                overall >= 0.4 ? 'bg-yellow-100 text-yellow-700' :
+                'bg-red-100 text-red-700'
+  
+  return (
+    <div className="flex items-center gap-2 mt-2">
+      <span className={`text-xs px-2 py-1 rounded ${color}`}>
+        {Math.round(overall * 100)}% confident
+      </span>
+      <span className="text-xs text-gray-400" title={`Routing: ${Math.round(confidence.routing * 100)}% | Retrieval: ${Math.round(confidence.retrieval * 100)}% | Response: ${Math.round(confidence.response * 100)}%`}>
+        ⓘ
+      </span>
+    </div>
+  )
 }
 
 export function Chat({ messages, isLoading, onSendMessage, hasActiveThread }: ChatProps) {
@@ -63,12 +81,15 @@ export function Chat({ messages, isLoading, onSendMessage, hasActiveThread }: Ch
             >
               {message.route && (
                 <span className="inline-block text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded mb-2">
-                  Route: {message.route}
+                  {message.route}
                 </span>
               )}
               <p className="whitespace-pre-wrap">{message.content}</p>
               {message.content === '' && message.role === 'assistant' && (
                 <span className="inline-block w-2 h-4 bg-gray-400 animate-pulse" />
+              )}
+              {message.confidence && message.role === 'assistant' && (
+                <ConfidenceBadge confidence={message.confidence} />
               )}
             </div>
           </div>
