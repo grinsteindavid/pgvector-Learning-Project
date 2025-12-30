@@ -1,20 +1,20 @@
-"""PostgreSQL checkpointer for LangGraph state persistence."""
+"""PostgreSQL checkpointer for LangGraph state persistence using SQLAlchemy."""
 
 import json
-from typing import Any, Optional, Iterator
-from datetime import datetime
+from typing import Optional, Iterator
 
 from langgraph.checkpoint.base import BaseCheckpointSaver, Checkpoint, CheckpointMetadata
 from langgraph.checkpoint.base import CheckpointTuple
+from sqlalchemy import text
 
-from src.db.connection import get_connection
+from src.db.models.base import engine
 from src.logger import get_logger
 
 logger = get_logger(__name__)
 
 
 class PostgresCheckpointer(BaseCheckpointSaver):
-    """Persist LangGraph checkpoints to PostgreSQL."""
+    """Persist LangGraph checkpoints to PostgreSQL using SQLAlchemy."""
     
     def put(
         self,
@@ -34,22 +34,21 @@ class PostgresCheckpointer(BaseCheckpointSaver):
         logger.info(f"Saving checkpoint {checkpoint_id} for thread {thread_id}")
         
         try:
-            with get_connection() as conn:
-                with conn.cursor() as cur:
-                    cur.execute("""
-                        INSERT INTO langgraph_checkpoints 
-                        (thread_id, checkpoint_id, parent_checkpoint_id, state, metadata)
-                        VALUES (%s, %s, %s, %s, %s)
-                        ON CONFLICT (thread_id, checkpoint_id) 
-                        DO UPDATE SET state = EXCLUDED.state, metadata = EXCLUDED.metadata
-                    """, (
-                        thread_id,
-                        checkpoint_id,
-                        parent_id,
-                        json.dumps(checkpoint),
-                        json.dumps(metadata) if metadata else None
-                    ))
-                    conn.commit()
+            with engine.connect() as conn:
+                conn.execute(text("""
+                    INSERT INTO langgraph_checkpoints 
+                    (thread_id, checkpoint_id, parent_checkpoint_id, state, metadata)
+                    VALUES (:thread_id, :checkpoint_id, :parent_id, :state, :metadata)
+                    ON CONFLICT (thread_id, checkpoint_id) 
+                    DO UPDATE SET state = EXCLUDED.state, metadata = EXCLUDED.metadata
+                """), {
+                    "thread_id": thread_id,
+                    "checkpoint_id": checkpoint_id,
+                    "parent_id": parent_id,
+                    "state": json.dumps(checkpoint),
+                    "metadata": json.dumps(metadata) if metadata else None
+                })
+                conn.commit()
             
             return {
                 "configurable": {
@@ -79,50 +78,50 @@ class PostgresCheckpointer(BaseCheckpointSaver):
             return None
         
         try:
-            with get_connection() as conn:
-                with conn.cursor() as cur:
-                    if checkpoint_id:
-                        cur.execute("""
-                            SELECT checkpoint_id, parent_checkpoint_id, state, metadata
-                            FROM langgraph_checkpoints
-                            WHERE thread_id = %s AND checkpoint_id = %s
-                        """, (thread_id, checkpoint_id))
-                    else:
-                        cur.execute("""
-                            SELECT checkpoint_id, parent_checkpoint_id, state, metadata
-                            FROM langgraph_checkpoints
-                            WHERE thread_id = %s
-                            ORDER BY created_at DESC
-                            LIMIT 1
-                        """, (thread_id,))
-                    
-                    row = cur.fetchone()
-                    
-                    if not row:
-                        logger.debug(f"No checkpoint found for thread {thread_id}")
-                        return None
-                    
-                    checkpoint_data = row["state"]
-                    metadata_data = row["metadata"] or {}
-                    
-                    logger.debug(f"Retrieved checkpoint {row['checkpoint_id']} for thread {thread_id}")
-                    
-                    return CheckpointTuple(
-                        config={
-                            "configurable": {
-                                "thread_id": thread_id,
-                                "checkpoint_id": row["checkpoint_id"]
-                            }
-                        },
-                        checkpoint=checkpoint_data,
-                        metadata=metadata_data,
-                        parent_config={
-                            "configurable": {
-                                "thread_id": thread_id,
-                                "checkpoint_id": row["parent_checkpoint_id"]
-                            }
-                        } if row["parent_checkpoint_id"] else None
-                    )
+            with engine.connect() as conn:
+                if checkpoint_id:
+                    result = conn.execute(text("""
+                        SELECT checkpoint_id, parent_checkpoint_id, state, metadata
+                        FROM langgraph_checkpoints
+                        WHERE thread_id = :thread_id AND checkpoint_id = :checkpoint_id
+                    """), {"thread_id": thread_id, "checkpoint_id": checkpoint_id})
+                else:
+                    result = conn.execute(text("""
+                        SELECT checkpoint_id, parent_checkpoint_id, state, metadata
+                        FROM langgraph_checkpoints
+                        WHERE thread_id = :thread_id
+                        ORDER BY created_at DESC
+                        LIMIT 1
+                    """), {"thread_id": thread_id})
+                
+                row = result.fetchone()
+                
+                if not row:
+                    logger.debug(f"No checkpoint found for thread {thread_id}")
+                    return None
+                
+                row_dict = row._mapping
+                checkpoint_data = row_dict["state"]
+                metadata_data = row_dict["metadata"] or {}
+                
+                logger.debug(f"Retrieved checkpoint {row_dict['checkpoint_id']} for thread {thread_id}")
+                
+                return CheckpointTuple(
+                    config={
+                        "configurable": {
+                            "thread_id": thread_id,
+                            "checkpoint_id": row_dict["checkpoint_id"]
+                        }
+                    },
+                    checkpoint=checkpoint_data,
+                    metadata=metadata_data,
+                    parent_config={
+                        "configurable": {
+                            "thread_id": thread_id,
+                            "checkpoint_id": row_dict["parent_checkpoint_id"]
+                        }
+                    } if row_dict["parent_checkpoint_id"] else None
+                )
         except Exception as e:
             logger.exception(f"Failed to get checkpoint: {e}")
             return None
@@ -144,39 +143,39 @@ class PostgresCheckpointer(BaseCheckpointSaver):
             return
         
         try:
-            with get_connection() as conn:
-                with conn.cursor() as cur:
-                    query = """
-                        SELECT checkpoint_id, parent_checkpoint_id, state, metadata
-                        FROM langgraph_checkpoints
-                        WHERE thread_id = %s
-                        ORDER BY created_at DESC
-                    """
-                    params = [thread_id]
-                    
-                    if limit:
-                        query += " LIMIT %s"
-                        params.append(limit)
-                    
-                    cur.execute(query, params)
-                    
-                    for row in cur.fetchall():
-                        yield CheckpointTuple(
-                            config={
-                                "configurable": {
-                                    "thread_id": thread_id,
-                                    "checkpoint_id": row["checkpoint_id"]
-                                }
-                            },
-                            checkpoint=row["state"],
-                            metadata=row["metadata"] or {},
-                            parent_config={
-                                "configurable": {
-                                    "thread_id": thread_id,
-                                    "checkpoint_id": row["parent_checkpoint_id"]
-                                }
-                            } if row["parent_checkpoint_id"] else None
-                        )
+            with engine.connect() as conn:
+                query = """
+                    SELECT checkpoint_id, parent_checkpoint_id, state, metadata
+                    FROM langgraph_checkpoints
+                    WHERE thread_id = :thread_id
+                    ORDER BY created_at DESC
+                """
+                params = {"thread_id": thread_id}
+                
+                if limit:
+                    query += " LIMIT :limit"
+                    params["limit"] = limit
+                
+                result = conn.execute(text(query), params)
+                
+                for row in result:
+                    row_dict = row._mapping
+                    yield CheckpointTuple(
+                        config={
+                            "configurable": {
+                                "thread_id": thread_id,
+                                "checkpoint_id": row_dict["checkpoint_id"]
+                            }
+                        },
+                        checkpoint=row_dict["state"],
+                        metadata=row_dict["metadata"] or {},
+                        parent_config={
+                            "configurable": {
+                                "thread_id": thread_id,
+                                "checkpoint_id": row_dict["parent_checkpoint_id"]
+                            }
+                        } if row_dict["parent_checkpoint_id"] else None
+                    )
         except Exception as e:
             logger.exception(f"Failed to list checkpoints: {e}")
             return

@@ -1,7 +1,10 @@
 psycopg[binary]==3.1.18
-pgvector==0.2.5
 openai>=1.40.0
 python-dotenv==1.0.1
+
+# SQLAlchemy
+sqlalchemy>=2.0.0
+pgvector>=0.2.5
 
 # LangGraph
 langgraph>=0.2.0

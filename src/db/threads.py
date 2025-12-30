@@ -1,9 +1,11 @@
-"""Thread and message management for chat persistence."""
+"""Thread and message management using SQLAlchemy ORM."""
 
+from datetime import datetime
 from typing import Optional
-from uuid import UUID
 
-from src.db.connection import get_connection
+from src.db.models.base import get_session
+from src.db.models.thread import ChatThread
+from src.db.models.message import ChatMessage
 from src.logger import get_logger
 
 logger = get_logger(__name__)
@@ -13,107 +15,56 @@ def create_thread(title: str = "New Chat") -> dict:
     """Create a new chat thread."""
     logger.info(f"Creating new thread: {title}")
     
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute("""
-                INSERT INTO chat_threads (title)
-                VALUES (%s)
-                RETURNING id, title, created_at, updated_at
-            """, (title,))
-            row = cur.fetchone()
-            conn.commit()
-            
-            return {
-                "id": str(row["id"]),
-                "title": row["title"],
-                "created_at": row["created_at"].isoformat(),
-                "updated_at": row["updated_at"].isoformat()
-            }
+    with get_session() as session:
+        thread = ChatThread(title=title)
+        session.add(thread)
+        session.flush()
+        return thread.to_dict()
 
 
 def get_thread(thread_id: str) -> Optional[dict]:
     """Get a thread by ID."""
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute("""
-                SELECT id, title, created_at, updated_at
-                FROM chat_threads
-                WHERE id = %s
-            """, (thread_id,))
-            row = cur.fetchone()
-            
-            if not row:
-                return None
-            
-            return {
-                "id": str(row["id"]),
-                "title": row["title"],
-                "created_at": row["created_at"].isoformat(),
-                "updated_at": row["updated_at"].isoformat()
-            }
+    with get_session() as session:
+        thread = session.query(ChatThread).filter_by(id=thread_id).first()
+        return thread.to_dict() if thread else None
 
 
 def list_threads(limit: int = 50) -> list[dict]:
     """List all threads ordered by last update."""
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute("""
-                SELECT id, title, created_at, updated_at
-                FROM chat_threads
-                ORDER BY updated_at DESC
-                LIMIT %s
-            """, (limit,))
-            
-            return [
-                {
-                    "id": str(row["id"]),
-                    "title": row["title"],
-                    "created_at": row["created_at"].isoformat(),
-                    "updated_at": row["updated_at"].isoformat()
-                }
-                for row in cur.fetchall()
-            ]
+    with get_session() as session:
+        threads = (
+            session.query(ChatThread)
+            .order_by(ChatThread.updated_at.desc())
+            .limit(limit)
+            .all()
+        )
+        return [t.to_dict() for t in threads]
 
 
 def update_thread_title(thread_id: str, title: str) -> Optional[dict]:
     """Update thread title."""
     logger.info(f"Updating thread {thread_id} title to: {title}")
     
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute("""
-                UPDATE chat_threads
-                SET title = %s, updated_at = NOW()
-                WHERE id = %s
-                RETURNING id, title, created_at, updated_at
-            """, (title, thread_id))
-            row = cur.fetchone()
-            conn.commit()
-            
-            if not row:
-                return None
-            
-            return {
-                "id": str(row["id"]),
-                "title": row["title"],
-                "created_at": row["created_at"].isoformat(),
-                "updated_at": row["updated_at"].isoformat()
-            }
+    with get_session() as session:
+        thread = session.query(ChatThread).filter_by(id=thread_id).first()
+        if not thread:
+            return None
+        thread.title = title
+        thread.updated_at = datetime.utcnow()
+        session.flush()
+        return thread.to_dict()
 
 
 def delete_thread(thread_id: str) -> bool:
     """Delete a thread and all its messages."""
     logger.info(f"Deleting thread {thread_id}")
     
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute("""
-                DELETE FROM chat_threads
-                WHERE id = %s
-            """, (thread_id,))
-            deleted = cur.rowcount > 0
-            conn.commit()
-            return deleted
+    with get_session() as session:
+        thread = session.query(ChatThread).filter_by(id=thread_id).first()
+        if not thread:
+            return False
+        session.delete(thread)
+        return True
 
 
 def add_message(
@@ -125,51 +76,31 @@ def add_message(
     """Add a message to a thread."""
     logger.debug(f"Adding {role} message to thread {thread_id}")
     
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute("""
-                INSERT INTO chat_messages (thread_id, role, content, route)
-                VALUES (%s, %s, %s, %s)
-                RETURNING id, thread_id, role, content, route, created_at
-            """, (thread_id, role, content, route))
-            row = cur.fetchone()
-            
-            cur.execute("""
-                UPDATE chat_threads SET updated_at = NOW() WHERE id = %s
-            """, (thread_id,))
-            
-            conn.commit()
-            
-            return {
-                "id": str(row["id"]),
-                "thread_id": str(row["thread_id"]),
-                "role": row["role"],
-                "content": row["content"],
-                "route": row["route"],
-                "created_at": row["created_at"].isoformat()
-            }
+    with get_session() as session:
+        message = ChatMessage(
+            thread_id=thread_id,
+            role=role,
+            content=content,
+            route=route
+        )
+        session.add(message)
+        
+        thread = session.query(ChatThread).filter_by(id=thread_id).first()
+        if thread:
+            thread.updated_at = datetime.utcnow()
+        
+        session.flush()
+        return message.to_dict()
 
 
 def get_messages(thread_id: str, limit: int = 100) -> list[dict]:
     """Get messages for a thread."""
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute("""
-                SELECT id, thread_id, role, content, route, created_at
-                FROM chat_messages
-                WHERE thread_id = %s
-                ORDER BY created_at ASC
-                LIMIT %s
-            """, (thread_id, limit))
-            
-            return [
-                {
-                    "id": str(row["id"]),
-                    "thread_id": str(row["thread_id"]),
-                    "role": row["role"],
-                    "content": row["content"],
-                    "route": row["route"],
-                    "created_at": row["created_at"].isoformat()
-                }
-                for row in cur.fetchall()
-            ]
+    with get_session() as session:
+        messages = (
+            session.query(ChatMessage)
+            .filter_by(thread_id=thread_id)
+            .order_by(ChatMessage.created_at.asc())
+            .limit(limit)
+            .all()
+        )
+        return [m.to_dict() for m in messages]

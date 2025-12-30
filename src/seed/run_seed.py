@@ -1,5 +1,8 @@
-import json
-from src.db.connection import get_connection
+"""Seed database with clinical data using SQLAlchemy ORM."""
+
+from src.db.models.base import get_session
+from src.db.models.organization import ClinicalOrganization
+from src.db.models.tool import ClinicalTool
 from src.embeddings.openai_embed import get_embeddings_batch
 from src.seed.clinical_data import CLINICAL_ORGANIZATIONS, CLINICAL_TOOLS
 from src.logger import get_logger
@@ -30,25 +33,20 @@ def seed_organizations():
     
     logger.info(f"Inserting {len(CLINICAL_ORGANIZATIONS)} organizations...")
     try:
-        with get_connection() as conn:
-            with conn.cursor() as cur:
-                for org, embedding in zip(CLINICAL_ORGANIZATIONS, embeddings):
-                    cur.execute("""
-                        INSERT INTO clinical_organizations 
-                        (name, org_type, specialty, description, city, state, services, ai_use_cases, embedding)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-                    """, (
-                        org["name"],
-                        org["org_type"],
-                        org["specialty"],
-                        org["description"],
-                        org["city"],
-                        org["state"],
-                        json.dumps(org["services"]),
-                        org["ai_use_cases"],
-                        embedding
-                    ))
-                conn.commit()
+        with get_session() as session:
+            for org, embedding in zip(CLINICAL_ORGANIZATIONS, embeddings):
+                record = ClinicalOrganization(
+                    name=org["name"],
+                    org_type=org["org_type"],
+                    specialty=org["specialty"],
+                    description=org["description"],
+                    city=org["city"],
+                    state=org["state"],
+                    services=org["services"],
+                    ai_use_cases=org["ai_use_cases"],
+                    embedding=embedding
+                )
+                session.add(record)
         logger.info("Organizations seeded successfully.")
     except Exception as e:
         logger.exception(f"Failed to insert organizations: {e}")
@@ -68,22 +66,17 @@ def seed_tools():
     
     logger.info(f"Inserting {len(CLINICAL_TOOLS)} clinical tools...")
     try:
-        with get_connection() as conn:
-            with conn.cursor() as cur:
-                for tool, embedding in zip(CLINICAL_TOOLS, embeddings):
-                    cur.execute("""
-                        INSERT INTO clinical_tools 
-                        (name, category, description, target_users, problem_solved, embedding)
-                        VALUES (%s, %s, %s, %s, %s, %s)
-                    """, (
-                        tool["name"],
-                        tool["category"],
-                        tool["description"],
-                        tool["target_users"],
-                        tool["problem_solved"],
-                        embedding
-                    ))
-                conn.commit()
+        with get_session() as session:
+            for tool, embedding in zip(CLINICAL_TOOLS, embeddings):
+                record = ClinicalTool(
+                    name=tool["name"],
+                    category=tool["category"],
+                    description=tool["description"],
+                    target_users=tool["target_users"],
+                    problem_solved=tool["problem_solved"],
+                    embedding=embedding
+                )
+                session.add(record)
         logger.info("Clinical tools seeded successfully.")
     except Exception as e:
         logger.exception(f"Failed to insert clinical tools: {e}")
