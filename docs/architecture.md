@@ -70,7 +70,41 @@ class AgentState:
     orgs_results: list[dict] = field(default_factory=list)
     response: str = ""
     error: str | None = None
+    confidence: dict = field(default_factory=lambda: {
+        "routing": 0.0,
+        "retrieval": 0.0,
+        "response": 0.0,
+        "overall": 0.0
+    })
 ```
+
+## Confidence Scoring
+
+Each response includes multi-level confidence assessment:
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                  CONFIDENCE PIPELINE                     │
+├─────────────────────────────────────────────────────────┤
+│  Supervisor    →  routing confidence (JSON response)    │
+│       ↓                                                  │
+│  Specialist    →  retrieval confidence (avg similarity) │
+│       ↓                                                  │
+│  LLM Response  →  response confidence (self-assessment) │
+│       ↓                                                  │
+│  Graph Output  →  overall = 0.2*routing + 0.4*retrieval │
+│                          + 0.4*response                 │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Confidence Sources
+
+| Component | Source | Calculation |
+|-----------|--------|-------------|
+| **Routing** | Supervisor agent | LLM returns confidence with route choice |
+| **Retrieval** | pgvector search | Average cosine similarity of top results |
+| **Response** | Specialist agent | LLM self-rates answer completeness |
+| **Overall** | Graph aggregation | Weighted average (20/40/40) |
 
 ## Database Schema
 

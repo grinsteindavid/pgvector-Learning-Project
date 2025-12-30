@@ -43,6 +43,7 @@ This system provides intelligent clinical decision support through a multi-agent
 
 - **Semantic Search** - pgvector-powered similarity search over clinical data
 - **Multi-Agent Routing** - Intelligent query classification and delegation
+- **Confidence Scores** - Multi-level confidence assessment (routing, retrieval, response)
 - **Streaming API** - Real-time Server-Sent Events (SSE) for progressive responses
 - **React Chat UI** - Modern streaming chat interface with thread persistence
 - **LangGraph Checkpoints** - PostgreSQL-backed conversation state persistence
@@ -148,7 +149,13 @@ Content-Type: application/json
   "route": "tool_finder",
   "response": "Based on your query...",
   "tools_results": [...],
-  "orgs_results": [...]
+  "orgs_results": [...],
+  "confidence": {
+    "routing": 0.9,
+    "retrieval": 0.48,
+    "response": 0.85,
+    "overall": 0.73
+  }
 }
 ```
 
@@ -432,6 +439,114 @@ CREATE INDEX idx_tool_embedding ON clinical_tools
 - One concept per file
 - Descriptive naming based on responsibility
 - Logging for all significant operations
+
+---
+
+## Confidence Scores
+
+Each API response includes confidence metrics:
+
+| Score | Weight | Source |
+|-------|--------|--------|
+| **Routing** | 20% | Supervisor agent's certainty in route choice |
+| **Retrieval** | 40% | Average pgvector similarity of retrieved results |
+| **Response** | 40% | LLM's self-assessment of answer quality |
+| **Overall** | - | Weighted average of above |
+
+### Confidence Levels
+
+| Range | Level | UI Color |
+|-------|-------|----------|
+| ≥70% | High | Green |
+| 40-70% | Medium | Yellow |
+| <40% | Low | Red |
+
+---
+
+## Useful Commands
+
+### Docker
+
+```bash
+# Start development environment
+make dev
+
+# Start production environment
+make prod
+
+# View logs (all services)
+make logs
+
+# Stop all services
+make down
+
+# Full cleanup (containers + volumes)
+make clean
+```
+
+### Database
+
+```bash
+# Initialize schema (inside container)
+docker exec clinical_ai_api python scripts/init_db.py
+
+# Seed sample data
+docker exec clinical_ai_api python scripts/seed_db.py
+
+# Connect to PostgreSQL
+docker exec -it pgvector_db psql -U postgres -d vectordb
+```
+
+### Testing
+
+```bash
+# Run unit tests
+pytest tests/unit -v
+
+# Run integration tests (requires running services)
+RUN_INTEGRATION_TESTS=1 pytest tests/integration -v
+
+# Run all tests with coverage
+pytest --cov=src tests/
+```
+
+### API Testing
+
+```bash
+# Health check
+curl http://localhost:5000/health
+
+# Query with confidence scores
+curl -X POST http://localhost:5000/api/query \
+  -H "Content-Type: application/json" \
+  -d '{"query": "Find documentation tools"}'
+
+# Create a thread
+curl -X POST http://localhost:5000/api/threads \
+  -H "Content-Type: application/json" \
+  -d '{"title": "My Chat"}'
+
+# Query in thread
+curl -X POST http://localhost:5000/api/threads/{thread_id}/query \
+  -H "Content-Type: application/json" \
+  -d '{"query": "What tools reduce burnout?"}'
+```
+
+### Container Management
+
+```bash
+# Restart API (picks up code changes)
+docker compose -f compose/docker-compose.yml -f compose/docker-compose.dev.yml restart api
+
+# View API logs
+docker logs clinical_ai_api --tail 50 -f
+
+# Check container status
+docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+
+# Execute command in container
+docker exec clinical_ai_api python -c "from src.agents.graph import create_clinical_graph; print('OK')"
+```
 
 ---
 
