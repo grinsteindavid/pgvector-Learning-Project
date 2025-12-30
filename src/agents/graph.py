@@ -16,7 +16,7 @@ from src.agents.workflow_advisor import WorkflowAdvisorAgent
 logger = get_logger(__name__)
 
 
-def create_clinical_graph(llm=None):
+def create_clinical_graph(llm=None, checkpointer=None):
     """Create the clinical decision support multi-agent graph."""
     
     if llm is None:
@@ -93,5 +93,9 @@ def create_clinical_graph(llm=None):
     graph.add_edge("tool_finder", END)
     graph.add_edge("org_matcher", END)
     graph.add_edge("workflow_advisor", END)
+    
+    if checkpointer:
+        logger.info("Compiling graph with checkpointer")
+        return graph.compile(checkpointer=checkpointer)
     
     return graph.compile()

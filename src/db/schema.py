@@ -57,6 +57,46 @@ def init_schema():
                     USING hnsw (embedding vector_cosine_ops);
                 """)
                 
+                logger.info("Creating chat_threads table...")
+                cur.execute("""
+                    CREATE TABLE IF NOT EXISTS chat_threads (
+                        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                        title VARCHAR(255) DEFAULT 'New Chat',
+                        created_at TIMESTAMPTZ DEFAULT NOW(),
+                        updated_at TIMESTAMPTZ DEFAULT NOW()
+                    );
+                """)
+                
+                logger.info("Creating chat_messages table...")
+                cur.execute("""
+                    CREATE TABLE IF NOT EXISTS chat_messages (
+                        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                        thread_id UUID REFERENCES chat_threads(id) ON DELETE CASCADE,
+                        role VARCHAR(20) NOT NULL,
+                        content TEXT NOT NULL,
+                        route VARCHAR(50),
+                        created_at TIMESTAMPTZ DEFAULT NOW()
+                    );
+                """)
+                
+                logger.info("Creating langgraph_checkpoints table...")
+                cur.execute("""
+                    CREATE TABLE IF NOT EXISTS langgraph_checkpoints (
+                        thread_id UUID REFERENCES chat_threads(id) ON DELETE CASCADE,
+                        checkpoint_id VARCHAR(255) NOT NULL,
+                        parent_checkpoint_id VARCHAR(255),
+                        state JSONB NOT NULL,
+                        metadata JSONB,
+                        created_at TIMESTAMPTZ DEFAULT NOW(),
+                        PRIMARY KEY (thread_id, checkpoint_id)
+                    );
+                """)
+                
+                cur.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_messages_thread 
+                    ON chat_messages(thread_id, created_at);
+                """)
+                
                 conn.commit()
                 logger.info("Schema initialized successfully.")
     except Exception as e:

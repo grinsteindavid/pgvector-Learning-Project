@@ -14,10 +14,12 @@ def create_app():
     
     from src.api.routes.health import health_bp
     from src.api.routes.agent import agent_bp
+    from src.api.routes.threads import threads_bp
     
     app.register_blueprint(health_bp)
     app.register_blueprint(agent_bp, url_prefix='/api')
+    app.register_blueprint(threads_bp, url_prefix='/api')
     
-    logger.info("Flask app created with routes: /health, /api/query, /api/query/stream")
+    logger.info("Flask app created with routes: /health, /api/query, /api/threads")
     
     return app

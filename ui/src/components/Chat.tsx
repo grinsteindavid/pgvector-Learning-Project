@@ -1,27 +1,15 @@
-import { useState, useRef, useEffect } from 'react'
+import { useRef, useEffect, useState } from 'react'
+import type { Message } from '../types/thread'
 
-interface Message {
-  id: string
-  role: 'user' | 'assistant'
-  content: string
-  route?: string
-  isStreaming?: boolean
+interface ChatProps {
+  messages: Message[]
+  isLoading: boolean
+  onSendMessage: (content: string) => void
+  hasActiveThread: boolean
 }
 
-interface StreamEvent {
-  node: string
-  data: {
-    route?: string
-    response?: string
-    tools_results?: unknown[]
-    orgs_results?: unknown[]
-  }
-}
-
-export function Chat() {
-  const [messages, setMessages] = useState<Message[]>([])
+export function Chat({ messages, isLoading, onSendMessage, hasActiveThread }: ChatProps) {
   const [input, setInput] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const scrollToBottom = () => {
@@ -32,116 +20,32 @@ export function Chat() {
     scrollToBottom()
   }, [messages])
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!input.trim() || isLoading) return
-
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      role: 'user',
-      content: input.trim()
-    }
-
-    setMessages(prev => [...prev, userMessage])
+    onSendMessage(input.trim())
     setInput('')
-    setIsLoading(true)
+  }
 
-    const assistantId = (Date.now() + 1).toString()
-    setMessages(prev => [...prev, {
-      id: assistantId,
-      role: 'assistant',
-      content: '',
-      isStreaming: true
-    }])
-
-    try {
-      const response = await fetch('/api/query/stream', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: userMessage.content })
-      })
-
-      if (!response.ok) throw new Error('API request failed')
-
-      const reader = response.body?.getReader()
-      const decoder = new TextDecoder()
-
-      if (!reader) throw new Error('No response body')
-
-      let accumulatedContent = ''
-      let route = ''
-
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-
-        const chunk = decoder.decode(value)
-        const lines = chunk.split('\n')
-
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = line.slice(6)
-            if (data === '[DONE]') continue
-
-            try {
-              const event: StreamEvent = JSON.parse(data)
-              
-              if (event.node === 'supervisor' && event.data.route) {
-                route = event.data.route
-              }
-              
-              if (event.data.response) {
-                accumulatedContent = event.data.response
-              }
-
-              setMessages(prev => prev.map(msg => 
-                msg.id === assistantId 
-                  ? { ...msg, content: accumulatedContent, route }
-                  : msg
-              ))
-            } catch {
-              // Skip invalid JSON
-            }
-          }
-        }
-      }
-
-      setMessages(prev => prev.map(msg => 
-        msg.id === assistantId 
-          ? { ...msg, isStreaming: false }
-          : msg
-      ))
-
-    } catch (error) {
-      console.error('Stream error:', error)
-      setMessages(prev => prev.map(msg => 
-        msg.id === assistantId 
-          ? { ...msg, content: 'Error: Failed to get response', isStreaming: false }
-          : msg
-      ))
-    } finally {
-      setIsLoading(false)
-    }
+  if (!hasActiveThread) {
+    return (
+      <div className="flex flex-col h-full items-center justify-center bg-gray-50">
+        <div className="text-center text-gray-400">
+          <h2 className="text-2xl font-semibold mb-2">Clinical AI Assistant</h2>
+          <p className="text-sm">Select a chat or create a new one to get started</p>
+        </div>
+      </div>
+    )
   }
 
   return (
-    <div className="flex flex-col h-full max-w-4xl mx-auto">
-      {/* Header */}
-      <header className="bg-white border-b px-6 py-4">
-        <h1 className="text-xl font-semibold text-gray-800">
-          Clinical AI Assistant
-        </h1>
-        <p className="text-sm text-gray-500">
-          Ask about clinical tools, healthcare organizations, or workflow optimization
-        </p>
-      </header>
-
+    <div className="flex flex-col h-full bg-gray-50">
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-6 space-y-4">
         {messages.length === 0 && (
           <div className="text-center text-gray-400 mt-20">
             <p className="text-lg">How can I help you today?</p>
-            <p className="text-sm mt-2">Try asking about clinical documentation tools or AI in healthcare</p>
+            <p className="text-sm mt-2">Ask about clinical tools, healthcare organizations, or workflow optimization</p>
           </div>
         )}
 
@@ -163,8 +67,8 @@ export function Chat() {
                 </span>
               )}
               <p className="whitespace-pre-wrap">{message.content}</p>
-              {message.isStreaming && (
-                <span className="inline-block w-2 h-4 bg-gray-400 animate-pulse ml-1" />
+              {message.content === '' && message.role === 'assistant' && (
+                <span className="inline-block w-2 h-4 bg-gray-400 animate-pulse" />
               )}
             </div>
           </div>
@@ -174,7 +78,7 @@ export function Chat() {
 
       {/* Input */}
       <form onSubmit={handleSubmit} className="border-t bg-white p-4">
-        <div className="flex gap-3">
+        <div className="flex gap-3 max-w-4xl mx-auto">
           <input
             type="text"
             value={input}

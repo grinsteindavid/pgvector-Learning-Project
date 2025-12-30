@@ -1,6 +1,6 @@
 # Clinical Decision Support Multi-Agent System
 
-A production-ready LangGraph multi-agent system for clinical decision support, leveraging pgvector for semantic search over healthcare data.
+A LangGraph multi-agent system for clinical decision support, leveraging pgvector for semantic search over healthcare data.
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![LangGraph](https://img.shields.io/badge/LangGraph-0.2+-green.svg)](https://github.com/langchain-ai/langgraph)
