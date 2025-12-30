@@ -7,13 +7,20 @@ from src.logger import get_logger
 from src.embeddings.openai_embed import get_embedding
 from src.retrievers import ToolsRetriever, OrgsRetriever
 
-from src.agents.state import AgentState, GraphState
+from src.agents.state import AgentState, GraphState, default_confidence
 from src.agents.supervisor import SupervisorAgent
 from src.agents.tool_finder import ToolFinderAgent
 from src.agents.org_matcher import OrgMatcherAgent
 from src.agents.workflow_advisor import WorkflowAdvisorAgent
 
 logger = get_logger(__name__)
+
+
+def calc_overall_confidence(confidence: dict) -> float:
+    """Calculate weighted overall confidence."""
+    weights = {"routing": 0.2, "retrieval": 0.4, "response": 0.4}
+    total = sum(confidence.get(k, 0) * v for k, v in weights.items())
+    return round(total, 3)
 
 
 def create_clinical_graph(llm=None, checkpointer=None):
@@ -41,31 +48,43 @@ def create_clinical_graph(llm=None, checkpointer=None):
     def supervisor_node(state: GraphState) -> dict:
         agent_state = AgentState.from_graph_state(state)
         result = supervisor.route(agent_state)
-        return {"route": result.route}
+        return {
+            "route": result.route,
+            "confidence": result.confidence
+        }
     
     def tool_finder_node(state: GraphState) -> dict:
         agent_state = AgentState.from_graph_state(state)
         result = tool_finder.run(agent_state)
+        conf = {**state.get("confidence", default_confidence()), **result.confidence}
+        conf["overall"] = calc_overall_confidence(conf)
         return {
             "tools_results": result.tools_results,
-            "response": result.response
+            "response": result.response,
+            "confidence": conf
         }
     
     def org_matcher_node(state: GraphState) -> dict:
         agent_state = AgentState.from_graph_state(state)
         result = org_matcher.run(agent_state)
+        conf = {**state.get("confidence", default_confidence()), **result.confidence}
+        conf["overall"] = calc_overall_confidence(conf)
         return {
             "orgs_results": result.orgs_results,
-            "response": result.response
+            "response": result.response,
+            "confidence": conf
         }
     
     def workflow_advisor_node(state: GraphState) -> dict:
         agent_state = AgentState.from_graph_state(state)
         result = workflow_advisor.run(agent_state)
+        conf = {**state.get("confidence", default_confidence()), **result.confidence}
+        conf["overall"] = calc_overall_confidence(conf)
         return {
             "tools_results": result.tools_results,
             "orgs_results": result.orgs_results,
-            "response": result.response
+            "response": result.response,
+            "confidence": conf
         }
     
     def route_decision(state: GraphState) -> Literal["tool_finder", "org_matcher", "workflow_advisor"]:

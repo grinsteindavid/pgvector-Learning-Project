@@ -49,16 +49,19 @@ def query():
             "tools_results": [],
             "orgs_results": [],
             "response": "",
-            "error": None
+            "error": None,
+            "confidence": {"routing": 0.0, "retrieval": 0.0, "response": 0.0, "overall": 0.0}
         })
         
-        logger.info(f"Query processed: route={result.get('route')}, response_len={len(result.get('response', ''))}")
+        confidence = result.get("confidence", {})
+        logger.info(f"Query processed: route={result.get('route')}, confidence={confidence.get('overall', 0):.2f}")
         
         return jsonify({
             "route": result.get("route"),
             "response": result.get("response"),
             "tools_results": result.get("tools_results", []),
-            "orgs_results": result.get("orgs_results", [])
+            "orgs_results": result.get("orgs_results", []),
+            "confidence": confidence
         })
         
     except Exception as e:
@@ -96,7 +99,8 @@ def query_stream():
                 "tools_results": [],
                 "orgs_results": [],
                 "response": "",
-                "error": None
+                "error": None,
+                "confidence": {"routing": 0.0, "retrieval": 0.0, "response": 0.0, "overall": 0.0}
             }
             
             for event in graph.stream(initial_state):

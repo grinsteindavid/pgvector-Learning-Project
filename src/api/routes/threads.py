@@ -141,11 +141,13 @@ def query_thread(thread_id: str):
             "tools_results": [],
             "orgs_results": [],
             "response": "",
-            "error": None
+            "error": None,
+            "confidence": {"routing": 0.0, "retrieval": 0.0, "response": 0.0, "overall": 0.0}
         }, config)
         
         route = result.get("route")
         response = result.get("response", "")
+        confidence = result.get("confidence", {})
         
         add_message(thread_id, "assistant", response, route)
         
@@ -153,13 +155,14 @@ def query_thread(thread_id: str):
             new_title = query_text[:50] + ("..." if len(query_text) > 50 else "")
             update_thread_title(thread_id, new_title)
         
-        logger.info(f"Query processed: route={route}")
+        logger.info(f"Query processed: route={route}, confidence={confidence.get('overall', 0):.2f}")
         
         return jsonify({
             "route": route,
             "response": response,
             "tools_results": result.get("tools_results", []),
-            "orgs_results": result.get("orgs_results", [])
+            "orgs_results": result.get("orgs_results", []),
+            "confidence": confidence
         })
     except Exception as e:
         logger.exception(f"Failed to process query: {e}")
@@ -194,7 +197,8 @@ def query_thread_stream(thread_id: str):
                 "tools_results": [],
                 "orgs_results": [],
                 "response": "",
-                "error": None
+                "error": None,
+                "confidence": {"routing": 0.0, "retrieval": 0.0, "response": 0.0, "overall": 0.0}
             }
             
             final_response = ""
