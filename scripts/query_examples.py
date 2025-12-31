@@ -4,7 +4,9 @@
 import sys
 sys.path.insert(0, ".")
 
-from src.queries.similarity import search_organizations, search_tools, search_all
+from src.retrievers.tools_retriever import ToolsRetriever
+from src.retrievers.orgs_retriever import OrgsRetriever
+from src.embeddings.openai_embed import get_embedding
 
 
 def print_org_results(results: list[dict], query: str):
@@ -13,9 +15,9 @@ def print_org_results(results: list[dict], query: str):
     print(f"ORGANIZATIONS matching: '{query}'")
     print("="*60)
     for i, r in enumerate(results, 1):
-        print(f"\n{i}. {r['name']} ({r['specialty']})")
-        print(f"   Type: {r['org_type']} | Location: {r['city']}, {r['state']}")
-        print(f"   AI Use Cases: {', '.join(r['ai_use_cases'])}")
+        print(f"\n{i}. {r['name']} ({r.get('specialty', 'N/A')})")
+        print(f"   Type: {r['org_type']} | Location: {r.get('city', 'N/A')}, {r.get('state', 'N/A')}")
+        print(f"   AI Use Cases: {', '.join(r.get('ai_use_cases', []))}")
         print(f"   Similarity: {r['similarity']:.4f}")
 
 
@@ -27,13 +29,17 @@ def print_tool_results(results: list[dict], query: str):
     for i, r in enumerate(results, 1):
         print(f"\n{i}. {r['name']}")
         print(f"   Category: {r['category']}")
-        print(f"   Target Users: {', '.join(r['target_users'])}")
-        print(f"   Problem Solved: {r['problem_solved'][:80]}...")
+        print(f"   Target Users: {', '.join(r.get('target_users', []))}")
+        problem = r.get('problem_solved', '')[:80] if r.get('problem_solved') else 'N/A'
+        print(f"   Problem Solved: {problem}...")
         print(f"   Similarity: {r['similarity']:.4f}")
 
 
 def run_examples():
     """Run example semantic searches."""
+    
+    tools_retriever = ToolsRetriever(embed_fn=get_embedding)
+    orgs_retriever = OrgsRetriever(embed_fn=get_embedding)
     
     print("\n" + "="*60)
     print("PGVECTOR SEMANTIC SEARCH EXAMPLES")
@@ -55,18 +61,20 @@ def run_examples():
     
     print("\n--- ORGANIZATION SEARCHES ---")
     for query in org_queries:
-        results = search_organizations(query, limit=3)
+        results = orgs_retriever.search(query, limit=3)
         print_org_results(results, query)
     
     print("\n\n--- CLINICAL TOOL SEARCHES ---")
     for query in tool_queries:
-        results = search_tools(query, limit=3)
+        results = tools_retriever.search(query, limit=3)
         print_tool_results(results, query)
     
     print("\n\n--- COMBINED SEARCH ---")
-    combined = search_all("AI solutions for clinician burnout and documentation", limit=3)
-    print_org_results(combined["organizations"], "AI for burnout (combined)")
-    print_tool_results(combined["tools"], "AI for burnout (combined)")
+    query = "AI solutions for clinician burnout and documentation"
+    org_results = orgs_retriever.search(query, limit=3)
+    tool_results = tools_retriever.search(query, limit=3)
+    print_org_results(org_results, "AI for burnout (combined)")
+    print_tool_results(tool_results, "AI for burnout (combined)")
 
 
 if __name__ == "__main__":

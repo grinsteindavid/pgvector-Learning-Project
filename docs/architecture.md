@@ -106,6 +106,49 @@ Each response includes multi-level confidence assessment:
 | **Response** | Specialist agent | LLM self-rates answer completeness |
 | **Overall** | Graph aggregation | Weighted average (20/40/40) |
 
+## Database Layer
+
+Uses **SQLAlchemy 2.0** ORM with psycopg (v3) driver.
+
+```
+src/db/
+├── models/           # SQLAlchemy ORM models
+│   ├── base.py       # Engine, session factory, Base
+│   ├── organization.py
+│   ├── tool.py
+│   ├── thread.py
+│   ├── message.py
+│   └── checkpoint.py
+├── schema.py         # Base.metadata.create_all()
+├── checkpointer.py   # LangGraph persistence
+└── threads.py        # Thread/message CRUD
+```
+
+### Approach
+
+| Operation | Method |
+|-----------|--------|
+| CRUD operations | SQLAlchemy ORM |
+| Vector similarity | Raw SQL via `text()` |
+| Session management | Context manager with auto-commit |
+| Schema changes | Alembic migrations |
+
+### Migrations (Alembic)
+
+```
+migrations/
+├── env.py              # Connects to models and database
+├── script.py.mako      # Migration template
+└── versions/
+    └── 001_initial_schema.py
+```
+
+**Workflow:**
+1. Modify model in `src/db/models/`
+2. Run `make migrate-new` → generates migration
+3. Review generated file in `migrations/versions/`
+4. Run `make migrate` → applies to database
+
 ## Database Schema
 
 ### clinical_organizations

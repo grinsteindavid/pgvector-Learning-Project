@@ -229,8 +229,14 @@ pgvectors/
 │   │   ├── tool_finder.py       # Tools agent
 │   │   ├── org_matcher.py       # Orgs agent
 │   │   └── workflow_advisor.py  # Synthesis agent
-│   ├── db/                      # Database layer
-│   │   ├── connection.py        # Connection pool
+│   ├── db/                      # Database layer (SQLAlchemy)
+│   │   ├── models/              # ORM models
+│   │   │   ├── base.py          # Engine & session factory
+│   │   │   ├── organization.py  # ClinicalOrganization
+│   │   │   ├── tool.py          # ClinicalTool
+│   │   │   ├── thread.py        # ChatThread
+│   │   │   ├── message.py       # ChatMessage
+│   │   │   └── checkpoint.py    # LangGraphCheckpoint
 │   │   ├── schema.py            # Schema init
 │   │   ├── checkpointer.py      # LangGraph checkpoints
 │   │   └── threads.py           # Thread persistence
@@ -240,6 +246,10 @@ pgvectors/
 │   │   └── orgs_retriever.py    # Orgs search
 │   └── embeddings/
 │       └── openai_embed.py      # OpenAI embeddings
+│
+├── migrations/                  # Alembic migrations
+│   ├── env.py                   # Migration environment
+│   └── versions/                # Migration files
 │
 ├── tests/                       # Test suite
 │   ├── conftest.py              # Fixtures
@@ -487,14 +497,32 @@ make clean
 ### Database
 
 ```bash
-# Initialize schema (inside container)
-docker exec clinical_ai_api python scripts/init_db.py
+# Initialize schema (auto on startup, or manual)
+make init-db
 
 # Seed sample data
-docker exec clinical_ai_api python scripts/seed_db.py
+make seed-db
 
 # Connect to PostgreSQL
 docker exec -it pgvector_db psql -U postgres -d vectordb
+```
+
+### Migrations (Alembic)
+
+```bash
+# Run pending migrations
+make migrate
+
+# Generate new migration after model changes
+make migrate-new
+# → Prompts for migration message
+# → Creates migrations/versions/xxx_message.py
+
+# Rollback last migration
+make migrate-down
+
+# Check current migration status
+docker compose -f compose/docker-compose.yml -f compose/docker-compose.dev.yml exec api alembic current
 ```
 
 ### Testing

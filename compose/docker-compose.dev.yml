@@ -12,6 +12,8 @@ services:
       - ../src:/app/src
       - ../scripts:/app/scripts
       - ../logs:/app/logs
+      - ../migrations:/app/migrations
+      - ../alembic.ini:/app/alembic.ini
 
   ui:
     build:
