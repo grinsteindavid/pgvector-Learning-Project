@@ -1,0 +1,49 @@
+[project]
+name = "clinical-decision-support"
+version = "0.1.0"
+description = "Clinical Decision Support Multi-Agent System"
+requires-python = ">=3.10"
+dependencies = [
+    "psycopg[binary]==3.1.18",
+    "openai>=1.40.0",
+    "python-dotenv==1.0.1",
+    "sqlalchemy>=2.0.0",
+    "pgvector>=0.2.5",
+    "alembic>=1.13.0",
+    "langgraph>=0.2.0",
+    "langchain-core>=0.3.0",
+    "langchain-openai>=0.2.0",
+    "flask>=3.0.0",
+    "flask-cors>=4.0.0",
+    "gunicorn>=21.0.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-cov>=4.0.0",
+    "flake8>=7.0.0",
+    "black>=24.0.0",
+    "isort>=5.13.0",
+    "mypy>=1.8.0",
+    "types-requests>=2.31.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.black]
+line-length = 100
+target-version = ["py310"]
+
+[tool.isort]
+profile = "black"
+line_length = 100
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true

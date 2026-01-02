@@ -88,8 +88,8 @@ This system provides intelligent clinical decision support through a multi-agent
 ### 1. Clone and Configure
 
 ```bash
-git clone https://github.com/grinsteindavid/pgvector-Learning-Project.git
-cd pgvector-Learning-Project
+git clone https://github.com/grinsteindavid/Clinical-Decision-Support-Multi-Agent-System.git
+cd Clinical-Decision-Support-Multi-Agent-System
 
 cp .env.example .env
 # Edit .env with your OpenAI API key

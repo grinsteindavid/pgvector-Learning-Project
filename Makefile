@@ -1,4 +1,4 @@
-.PHONY: dev prod down logs test init-db seed-db clean help setup reset migrate migrate-new migrate-down
+.PHONY: dev prod down logs test test-local lint init-db seed-db clean help setup reset migrate migrate-new migrate-down
 
 # Default target
 help:
@@ -11,7 +11,9 @@ help:
 	@echo "    make dev       - Start development environment (hot-reload)"
 	@echo "    make down      - Stop all containers"
 	@echo "    make logs      - View container logs"
-	@echo "    make test      - Run test suite"
+	@echo "    make test      - Run test suite in container"
+	@echo "    make test-local - Run test suite locally"
+	@echo "    make lint      - Run linting in container"
 	@echo ""
 	@echo "  Database:"
 	@echo "    make init-db   - Initialize database schema (auto on startup)"
@@ -54,9 +56,17 @@ down:
 logs:
 	docker compose -f compose/docker-compose.yml logs -f
 
-# Run tests
+# Run tests in container
 test:
+	docker compose -f compose/docker-compose.yml -f compose/docker-compose.dev.yml exec api pytest tests/ -v
+
+# Run tests locally
+test-local:
 	pytest tests/ -v
+
+# Run linting in container
+lint:
+	docker compose -f compose/docker-compose.yml -f compose/docker-compose.dev.yml exec api sh -c "black --check src/ tests/ && isort --check src/ tests/ && flake8 src/ tests/"
 
 # Initialize database schema
 init-db:
