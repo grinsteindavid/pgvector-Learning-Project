@@ -185,8 +185,8 @@ See [API Documentation](docs/api.md) for complete reference.
 pgvectors/
 ├── .env.example                 # Environment template
 ├── Makefile                     # Dev/prod commands
-├── requirements.txt             # Production dependencies
-├── requirements-dev.txt         # Dev/test dependencies
+├── pyproject.toml               # Dependencies (uv)
+├── uv.lock                      # Lock file
 ├── pytest.ini                   # Test configuration
 │
 ├── compose/                     # Docker Compose configs
@@ -318,7 +318,7 @@ RUN_INTEGRATION_TESTS=1 pytest tests/integration -v
 ### Test Coverage
 
 - 29 unit tests with mocked embeddings and database
-- 3 integration tests for end-to-end flow
+- 10 integration tests for end-to-end flow
 - Live log output during test execution
 
 ---
