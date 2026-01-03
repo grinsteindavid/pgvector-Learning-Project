@@ -116,11 +116,16 @@ make seed-db
 ### Available Commands
 
 ```bash
+make help      # Show all available commands
+make setup     # First-time setup (start + seed database)
 make dev       # Start development environment (hot-reload)
 make prod      # Start production environment
 make down      # Stop all containers
 make logs      # View container logs
-make test      # Run test suite
+make test      # Run test suite in container
+make test-local # Run test suite locally
+make lint      # Run linting (black, isort, flake8)
+make reset     # Reset database (clean + setup)
 make clean     # Remove containers, volumes, and cache
 ```
 
@@ -284,10 +289,18 @@ pgvectors/
 
 ### Environment Variables
 
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `OPENAI_API_KEY` | OpenAI API key | `sk-proj-...` |
-| `DATABASE_URL` | PostgreSQL connection string | `postgresql://postgres:postgres@localhost:5432/vectordb` |
+| Variable | Description | Default |
+|----------|-------------|----------|
+| `OPENAI_API_KEY` | OpenAI API key (required) | - |
+| `DATABASE_URL` | PostgreSQL connection string | `postgresql://pguser:pgpass@localhost:5432/clinical_ai` |
+| `AUTO_INIT_DB` | Auto-initialize schema on startup | `true` |
+
+### Embedding Configuration
+
+| Constant | Value | Description |
+|----------|-------|-------------|
+| `EMBEDDING_MODEL` | `text-embedding-3-small` | OpenAI embedding model |
+| `EMBEDDING_DIMENSIONS` | `1536` | Vector dimensions |
 
 ### Logging
 
